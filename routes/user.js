@@ -6,6 +6,7 @@ const crypto=require('crypto');
 const jwt=require('jsonwebtoken');
 const nodemailer=require('nodemailer');
 
+//function
 async function sendVerificationEmail(email,token,subject,html){
     const transporter=nodemailer.createTransport({
                 service:'gmail',
@@ -41,18 +42,18 @@ router.post('/add',async(req,res)=>{
             
             usr.verificationtoken=token;
 
-            //function to hash password
-            salt=bcrypt.genSaltSync(10); 
-            cryptpass=await bcrypt.hashSync(data.password,salt); 
+            //hash password
+            const salt=bcrypt.genSaltSync(10); 
+            const cryptpass=await bcrypt.hashSync(data.password,salt); 
             usr.password=cryptpass;
 
             const url=process.env.VERIFY+token;
             const html=`<h3>Click to verify</h3><a href="${url}">${url}</a>`;
             //function to config email
             await sendVerificationEmail(usr.email,token,'Verify your email',html);
-
+            const users=await usr.save();
             res.status(200).send("Verification email sent");
-            users=await usr.save();
+            
         } 
 
     } 
@@ -73,8 +74,9 @@ router.get('/verify/:token',async(req,res)=>{
         else{
             user.isVerified=true;
             user.verificationtoken=undefined;
-            res.status(200).send("Email verified successfully");
             await user.save();
+            res.status(200).send("Email verified successfully");
+            
         }
     }
     catch(err){
@@ -91,7 +93,7 @@ router.get('/verify/:token',async(req,res)=>{
              res.status(401).send("Invalid email or password"); 
         } 
         else{
-             validpass=await bcrypt.compareSync(data.password,user.password); 
+             const validpass=await bcrypt.compareSync(data.password,user.password); 
              if(!validpass){
                  res.status(401).send("Invalid email or password"); 
              } 
@@ -115,7 +117,7 @@ router.get('/verify/:token',async(req,res)=>{
 // Get all users 
 router.get('/getall',async(req,res)=>{ 
     try{ 
-       users=await User.find();
+       const users=await User.find();
         res.status(200).send(users);
    } 
     catch(err){ 
@@ -126,8 +128,8 @@ router.get('/getall',async(req,res)=>{
 // Get user by ID 
 router.get('/get/:id',async(req,res)=>{ 
     try{ 
-        id=req.params.id; 
-        users=await User.findOne({_id:id}); 
+        const id=req.params.id; 
+        const users=await User.findOne({_id:id}); 
         res.status(200).send(users); 
     }
     catch(err){ 
@@ -138,24 +140,34 @@ router.get('/get/:id',async(req,res)=>{
 // Update user by ID 
 router.put('/update/:id',async(req,res)=>{
     try{ 
-        id=req.params.id; 
-        data=req.body;  
-        user=await User.findByIdAndUpdate({_id:id},data);
-         if(!user){
+        const id=req.params.id; 
+        const data=req.body;  
+        const existUser=await User.findById({_id:id});
+        if(!existUser){
             res.status(404).send("user not found");
         }
         else{
-            if (data.password){
-                salt=bcrypt.genSaltSync(10); 
-                cryptpass=await bcrypt.hashSync(data.password,salt); 
-                user.password=cryptpass;
-                await user.save();
-                res.status(200).send(user); 
-            }
-            else{
-                res.status(200).send(user); 
+            if(data.password){
+                const salt=bcrypt.genSaltSync(10); 
+                const cryptpass=await bcrypt.hashSync(data.password,salt); 
+                data.password=cryptpass;
             }
         }
+        const updateUser=await User.findByIdAndUpdate({_id:id},data);
+        if(data.email){
+            if(data.email !== existUser.email){
+                const token=crypto.randomBytes(32).toString('hex');
+                existUser.verificationtoken = token;
+                existUser.isVerified = false;
+                await existUser.save();
+                console.log(token);
+                const url=process.env.VERIFY+token;
+                const html = `<h3>Click to confirm your new email</h3><a href="${url}">${url}</a>`;
+                await sendVerificationEmail(data.email,token,'Confirm your email',html);
+            }
+        }
+        res.status(200).send(updateUser);
+         
     } 
     catch(err){ 
         console.log(err);
@@ -166,13 +178,14 @@ router.put('/update/:id',async(req,res)=>{
 // Delete user by ID 
 router.delete('/delete/:id',async(req,res)=>{ 
     try{ 
-        id=req.params.id; 
-        user=await User.findByIdAndDelete({_id:id});
+        const id=req.params.id; 
+        const user=await User.findById({_id:id});
         if(!user){
             res.status(404).send("user not found");
         }
         else{
-            res.status(200).send(users); 
+            const deleteUser= await User.findByIdAndDelete({_id:id});
+            res.status(200).send(deleteUser);
         }
     } 
     catch(err){ 
