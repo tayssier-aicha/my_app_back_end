@@ -17,7 +17,7 @@ async function sendVerificationEmail(email, token, subject = 'Verify Your Email'
 
     const verifyUrl = `${process.env.VERIFY}${token}`;
 
-    // Modern, clean & beautiful email template
+    //email template
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -73,7 +73,7 @@ async function sendVerificationEmail(email, token, subject = 'Verify Your Email'
                         <tr>
                             <td style="background: #f8fafc; padding: 24px 30px; text-align: center; font-size: 13px; color: #9ca3af;">
                                 <p style="margin: 0 0 8px;">
-                                    © ${new Date().getFullYear()} Your App Name — All rights reserved.
+                                    © ${new Date().getFullYear()} Lost & Founs — All rights reserved.
                                 </p>
                                 <p style="margin: 0;">
                                     You're receiving this because you signed up / updated your email.
@@ -88,11 +88,81 @@ async function sendVerificationEmail(email, token, subject = 'Verify Your Email'
     </html>`;
 
     await transporter.sendMail({
-        from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+        from: `"Lost & Found" <${process.env.EMAIL_USER}>`,
         to: email,
         subject,
         html
     });
+};
+
+async function sendPasswordResetEmail(email, plainResetToken) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS, // ← App Password if 2FA is on
+    },
+  });
+
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${plainResetToken}`;
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password</title>
+  </head>
+  <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f7fa;color:#1f2937;">
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#f4f7fa;padding:40px 20px;">
+      <tr><td align="center">
+        <table width="100%" max-width="480" border="0" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg, #6366f1, #8b5cf6);padding:40px 30px;text-align:center;">
+              <h1 style="margin:0;font-size:28px;color:white;font-weight:600;">Reset Your Password</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 30px;">
+              <p style="font-size:16px;line-height:1.6;color:#374151;margin:0 0 24px;">Hello,</p>
+              <p style="font-size:16px;line-height:1.6;color:#374151;margin:0 0 24px;">
+                You requested to reset your password for your Lost & Found account.<br>
+                Click the button below to set a new password:
+              </p>
+              <div style="text-align:center;margin:32px 0;">
+                <a href="${resetUrl}" target="_blank"
+                   style="display:inline-block;background:linear-gradient(135deg, #6366f1, #8b5cf6);color:white;font-size:16px;font-weight:600;text-decoration:none;padding:16px 40px;border-radius:12px;box-shadow:0 4px 14px rgba(99,102,241,0.3);">
+                  Reset Password
+                </a>
+              </div>
+              <p style="font-size:14px;color:#6b7280;margin:0 0 20px;text-align:center;">
+                Or copy and paste this link:<br>
+                <a href="${resetUrl}" style="color:#6366f1;word-break:break-all;">${resetUrl}</a>
+              </p>
+              <p style="font-size:14px;line-height:1.5;color:#6b7280;margin:0;">
+                This link will expire in <strong>60 minutes</strong> for security reasons.<br>
+                If you did not request a password reset, please ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;padding:24px 30px;text-align:center;font-size:13px;color:#9ca3af;">
+              © ${new Date().getFullYear()} Lost & Found — All rights reserved
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+  </html>`;
+
+  await transporter.sendMail({
+    from: `"Lost & Found" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: 'Reset Your Password - Lost & Found',
+    html,
+  });
 }
 
 
@@ -103,7 +173,7 @@ router.post('/add', async (req, res) => {
         const email_exist = await User.findOne({ email: data.email });
 
         if (email_exist) {
-            return res.status(409).json({ message: "Email already exists" });
+            return res.status(409).send("Email already exists");
         }
 
         const token = crypto.randomBytes(32).toString('hex');
@@ -111,7 +181,7 @@ router.post('/add', async (req, res) => {
         const usr = new User(data);
 
         usr.verificationtoken = token;
-        usr.isVerified = false; // ensure default
+        usr.isVerified = false; 
 
         // Hash password
         const salt = await bcrypt.genSalt(10);
@@ -121,7 +191,7 @@ router.post('/add', async (req, res) => {
 
         await usr.save();
 
-        res.status(201).json({ message: "Verification email sent. Please check your inbox." });
+        res.status(201).send("Verification email sent. Please check your inbox.");
 
     } catch (err) {
         console.error(err);
@@ -157,10 +227,10 @@ router.post('/login', async (req, res) => {
 
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(401).json({ message: "Invalid email or password" });
+            res.status(401).send("Invalid email or password");
         }
 
-        // ← New feature: if not verified → resend email
+        // if not verified → resend email
         if (!user.isVerified) {
             const newToken = crypto.randomBytes(32).toString('hex');
             user.verificationtoken = newToken;
@@ -181,7 +251,7 @@ router.post('/login', async (req, res) => {
 
         const validPass = await bcrypt.compare(password, user.password);
         if (!validPass) {
-            return res.status(401).json({ message: "Invalid email or password" });
+            res.status(401).send("Invalid email or password");
         }
 
         const payload = {
@@ -203,6 +273,124 @@ router.post('/login', async (req, res) => {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
+});
+
+
+// ────────────────────────────────────────────────
+//                   FORGOT PASSWORD
+// ────────────────────────────────────────────────
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid email is required',
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Security: always return same message (timing attack prevention)
+    if (!user || !user.isVerified) {
+      return res.status(200).json({
+        success: true,
+        message:
+          'If an account with this email exists and is verified, you will receive a password reset link shortly.',
+      });
+    }
+
+    // Generate secure token
+    const resetTokenPlain = crypto.randomBytes(32).toString('hex');
+    const resetTokenHashed = crypto
+      .createHash('sha256')
+      .update(resetTokenPlain)
+      .digest('hex');
+
+    user.resetPasswordToken = resetTokenHashed;
+    user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 60 minutes
+
+    await user.save({ validateBeforeSave: false });
+
+    // Send email with **plain** token (user gets the usable version)
+    await sendPasswordResetEmail(user.email, resetTokenPlain);
+
+    return res.status(200).json({
+      success: true,
+      message:
+        'If an account with this email exists and is verified, you will receive a password reset link shortly.',
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Something went wrong. Please try again later.',
+    });
+  }
+});
+
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password, passwordConfirm } = req.body;
+
+    if (!token || !password || !passwordConfirm) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token and both password fields are required',
+      });
+    }
+
+    if (password !== passwordConfirm) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match',
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired password reset token',
+      });
+    }
+
+    // Update password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Clear reset fields (token becomes single-use)
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. You can now log in.',
+    });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again.',
+    });
+  }
 });
 
 // Get all users 
@@ -265,6 +453,7 @@ router.put('/update/:id',async(req,res)=>{
         res.status(400).send(err); 
     } 
 }); 
+
 
 // Delete user by ID 
 router.delete('/delete/:id',async(req,res)=>{ 

@@ -37,10 +37,23 @@ router.post('/add',upload.any('image'),async (req,res)=>{
     }
     
 });
-router.get('/get/:type', async (req, res) => {
+router.get('/getall', async (req, res) => {
     try {
-        const type=req.params.type;
-        if(type==""){
+        const items=await Item.find();
+        res.status(200).send(items);
+    }
+    catch (err) {
+        console.log(err);
+        res.status(400).send(err);
+    }
+});
+
+router.get('/get', async (req, res) => {
+    try {
+        console.log(req);
+        
+        const type=req.body?.type;
+        if(!type){
             const items=await Item.find();
             res.status(200).send(items);
         }

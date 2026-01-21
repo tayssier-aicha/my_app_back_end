@@ -16,7 +16,13 @@ const User=mongoose.model('User',{
     },
     verificationtoken:{
         type: String,
-    }    
+    },
+    resetPasswordToken: {
+        type: String,
+    },
+    resetPasswordExpires: {
+        type: Date,
+    }
 });
 
 module.exports=User;
