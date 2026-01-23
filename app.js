@@ -16,7 +16,7 @@ app.use(express.json());
 app.use('/user',UserRoutes);
 app.use('/item',ItemRoutes);
 app.use('/message',MessageRoutes);
-
+app.use('/uploads',express.static('uploads'));
 
 app.listen(4000,()=>{
     console.log('Server is running');

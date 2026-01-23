@@ -21,7 +21,7 @@ const Item = require('../models/item');
 
 const upload=multer({storage});
 
-router.post('/add',upload.any('image'),async (req,res)=>{
+router.post('/add',upload.single('image'),async (req,res)=>{
     try{
 
         const data=req.body;
@@ -49,23 +49,30 @@ router.get('/getall', async (req, res) => {
 });
 
 router.get('/get', async (req, res) => {
-    try {
-        console.log(req);
-        
-        const type=req.body?.type;
-        if(!type){
-            const items=await Item.find();
-            res.status(200).send(items);
-        }
-        else{
-            const items=await Item.find({type});
-            res.status(200).send(items);
-        }
+  try {
+    const type = req.query.type;
+
+    let query = {};
+    if (type) {
+      query.type = type; // 'lost' or 'found'
     }
-    catch (err) {
-        console.log(err);
-        res.status(400).send(err);
-    }
+
+    // Find items + populate the 'user' field
+    const items = await Item.find(query)
+      .populate({
+        path: 'user',
+        select: 'name'          // ← only bring username (add more fields if needed)
+        // Example with more fields:
+        // select: 'username email profilePicture'
+      })
+      .lean();                      // optional: faster, returns plain JS objects
+
+    res.status(200).json(items);
+
+  } catch (err) {
+    console.error('Error fetching items:', err);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
 });
 
 router.get('/get/:id',async (req,res)=>{

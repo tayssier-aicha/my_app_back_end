@@ -257,7 +257,8 @@ router.post('/login', async (req, res) => {
         const payload = {
             _id: user._id,
             email: user.email,
-            isVerified: user.isVerified
+            isVerified: user.isVerified,
+            name:user.name
             // Avoid sending password or sensitive data
         };
 

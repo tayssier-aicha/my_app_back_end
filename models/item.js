@@ -1,29 +1,22 @@
-const mongoose=require('mongoose');
+const mongoose = require('mongoose');
 
-const Item=mongoose.model('Item',{
-    type:{
-        type:String,
-        enum:['lost','found']
-    },
-    description:{
-        type:String,
-    },
-    location:{
-        type:String,
-    },
-    date:{
-        type:Date,
-    },
-    image:{
-        type:String,
-    },
-    user: {
+const itemSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['lost', 'found'],
+    required: true
+  },
+  description: String,
+  location: String,
+  date: Date,
+  image: String,
+  user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',            
-    required: true          
+    ref: 'User',
+    required: true
   }
-},{
+}, {
   timestamps: true
 });
 
-module.exports=Item;
+module.exports = mongoose.model('Item', itemSchema);
