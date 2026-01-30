@@ -89,27 +89,39 @@ router.get('/get/:id',async (req,res)=>{
     }
 });
 
-router.put('/updateId/:id',upload.any('image'),async(req,res)=>{
-    try{
-        const id=req.params.id;
-        const newData=req.body;
-        const item=await Item.findById({_id:id});
-        if(!item){
-            res.status(404).send("item not found ");
-        }
-        else{
-            if(newData.image){
-                newData.image=filename;
-            }   
-            const updatedItem=await Item.findByIdAndUpdate({_id:id},newData);
-            filename='';
-            res.status(200).send(updatedItem);
-        }
+const fs = require('fs');
+const path = require('path');
+
+router.put('/updateId/:id', upload.single('image'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const newData = req.body;
+
+    const item = await Item.findById(id);
+    if (!item) return res.status(404).send("Item not found");
+
+    item.description = newData.description || item.description;
+    item.category = newData.category || item.category;
+    item.location = newData.location || item.location;
+    item.date = newData.date || item.date;
+
+    if (req.file) {
+      if (item.image) {
+        const oldPath = path.join(__dirname, '../uploads', item.image);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      item.image = req.file.filename;
     }
-    catch(error){
-        res.status(400).send(error);
-    }
+
+    await item.save();
+    res.status(200).send(item);
+
+  } catch (error) {
+    console.error(error);
+    res.status(400).send(error);
+  }
 });
+
 
 router.delete('/delete/:id',async(req,res)=>{
     try{

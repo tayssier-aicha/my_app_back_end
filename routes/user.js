@@ -5,6 +5,7 @@ const bcrypt=require('bcrypt');
 const crypto=require('crypto');
 const jwt=require('jsonwebtoken');
 const nodemailer=require('nodemailer');
+const { create } = require('../models/item');
 
 async function sendVerificationEmail(email, token, subject = 'Verify Your Email', isNew = false) {
     const transporter = nodemailer.createTransport({
@@ -99,7 +100,7 @@ async function sendPasswordResetEmail(email, plainResetToken) {
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // ← App Password if 2FA is on
+      pass: process.env.EMAIL_PASS, 
     },
   });
 
@@ -229,7 +230,6 @@ router.post('/login', async (req, res) => {
             res.status(401).send("Invalid email or password");
         }
 
-        // if not verified → resend email
         if (!user.isVerified) {
             const newToken = crypto.randomBytes(32).toString('hex');
             user.verificationtoken = newToken;
@@ -257,7 +257,8 @@ router.post('/login', async (req, res) => {
             _id: user._id,
             email: user.email,
             isVerified: user.isVerified,
-            name:user.name
+            name:user.name,
+            createdAt:user.createdAt,
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -451,20 +452,15 @@ router.put('/update/:id',async(req,res)=>{
 
 
 // Delete user by ID 
-router.delete('/delete/:id',async(req,res)=>{ 
-    try{ 
-        const id=req.params.id; 
-        const user=await User.findById({_id:id});
-        if(!user){
-            res.status(404).send("user not found");
-        }
-        else{
-            const deleteUser= await User.findByIdAndDelete({_id:id});
-            res.status(200).send(deleteUser);
-        }
-    } 
-    catch(err){ 
-        res.status(400).send(err); 
-    } 
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).send("User not found");
+
+    const deleted = await User.findOneAndDelete({ _id: req.params.id });
+    res.status(200).json(deleted);
+  } catch (err) {
+    res.status(500).send(err);
+  }
 });
 module.exports=router;

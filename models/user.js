@@ -36,4 +36,10 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.pre('findOneAndDelete', async function (next) {
+  const userId = this.getQuery()._id;
+  await Item.deleteMany({ user: userId });
+  next();
+});
+
 module.exports = mongoose.model('User', userSchema);
